@@ -61,7 +61,7 @@ The default Aseprite theme was introduced in v0.8, created by:
 
 * [Ilija Melentijevic](https://ilkke.net/)
 
-Aseprite includes color palettes created by:
+Aseprite includes color palettes created by (Wonderful):
 
 * [Richard "DawnBringer" Fhager](http://pixeljoint.com/p/23821.htm), [16 colors](http://pixeljoint.com/forum/forum_posts.asp?TID=12795),  [32 colors](http://pixeljoint.com/forum/forum_posts.asp?TID=16247).
 * [Arne Niklas Jansson](http://androidarts.com/), [16 colors](http://androidarts.com/palette/16pal.htm), [32 colors](http://wayofthepixel.net/index.php?topic=15824.msg144494).

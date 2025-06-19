@@ -1,0 +1,53 @@
+name: Build Aseprite for Windows
+
+on:
+  workflow_dispatch:  # manual trigger
+  push:
+    branches:
+      - main
+
+jobs:
+  build-windows:
+    name: Build on Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Aseprite Source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive  # includes Skia and other deps
+
+      - name: Install vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+
+      - name: Set up MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Dependencies
+        run: |
+          git clone https://github.com/microsoft/vcpkg
+          .\vcpkg\bootstrap-vcpkg.bat
+          .\vcpkg\vcpkg install freetype harfbuzz pixman
+
+      - name: Configure Aseprite Build (with Ninja)
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DLAF_BACKEND=skia
+          -DSKIA_DIR=third_party/skia
+          -DSKIA_LIBRARY_DIR=third_party/skia/out/Release-x64
+          -DSKIA_LIBRARY=third_party/skia/out/Release-x64/skia.lib
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+          -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
+          -G Ninja
+
+      - name: Build Aseprite
+        run: cmake --build build --config Release
+
+      - name: Upload Aseprite Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: aseprite-windows
+          path: build/bin/aseprite.exe

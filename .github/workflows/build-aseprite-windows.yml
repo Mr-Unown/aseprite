@@ -2,21 +2,27 @@ name: Build Aseprite Windows
 
 on:
   workflow_dispatch:
+  push: #Uncomment this line to run the workflow on push
+    branches: #add any branches you want to build here -awfulnasty
+        - main
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - uses: aseprite/get-ninja@main
+      - name: Install Ninja
+        uses: aseprite/get-ninja@main
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Set up MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install Skia
+      - name: Download and extract Skia
         shell: bash
         run: |
           this_dir=$(cygpath "${{ github.workspace }}")
@@ -25,13 +31,14 @@ jobs:
           curl --ssl-revoke-best-effort -L -o "$skia_file" "$skia_url"
           unzip "$skia_file" -d skia
 
-      - name: Configure with CMake (Release)
+      - name: Configure Aseprite with CMake (Release)
         shell: bash
         run: |
           export laf_backend=skia
           export enable_scripting=on
           export enable_ccache=off
           export skia_arch=x64
+
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DLAF_BACKEND=$laf_backend \
@@ -40,17 +47,33 @@ jobs:
             -DSKIA_DIR=$(realpath skia) \
             -DSKIA_LIBRARY_DIR=$(realpath skia/out/Release-$skia_arch)
 
-      - name: Compile Aseprite
+      - name: Build Aseprite with Ninja
         shell: bash
-        run: cd build && ninja
-
-      - name: Package Clean Release
         run: |
-          mkdir release
-          copy build\bin\aseprite.exe release\
+          cd build && ninja
 
-      - name: Upload Aseprite Release Artifact
+      - name: Copy runtime DLLs to bin
+        shell: bash
+        run: |
+          find build -type f -name "*.dll" -exec cp {} build/bin/ \;
+
+      - name: Clean up unnecessary files
+        shell: bash
+        run: |
+          find build/bin -type f \( \
+            -name "*.pdb" -o \
+            -name "*.exp" -o \
+            -name "*.ilk" -o \
+            -name "*.lib" -o \
+            -name "*.obj" \) -delete
+
+      - name: Zip final release
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build/bin/* -DestinationPath aseprite-release.zip
+
+      - name: Upload zipped Aseprite release
         uses: actions/upload-artifact@v4
         with:
-          name: aseprite-release
-          path: release/
+          name: aseprite-windows-release
+          path: aseprite-release.zip

@@ -1,12 +1,12 @@
 // Aseprite
-// Copyright (C) 2019-2021  Igara Studio S.A.
+// Copyright (C) 2019-2023  Igara Studio S.A.
 // Copyright (C) 2018  David Capello
 //
 // This program is distributed under the terms of
 // the End-User License Agreement for Aseprite.
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+  #include "config.h"
 #endif
 
 #include "app/app.h"
@@ -15,7 +15,6 @@
 #include "app/color_utils.h"
 #include "app/commands/command.h"
 #include "app/context_access.h"
-#include "app/modules/editors.h"
 #include "app/pref/preferences.h"
 #include "app/tx.h"
 #include "app/ui/editor/editor.h"
@@ -30,49 +29,43 @@ class FillCommand : public Command {
 public:
   enum Type { Fill, Stroke };
   FillCommand(Type type);
+
 protected:
   bool onEnabled(Context* ctx) override;
   void onExecute(Context* ctx) override;
+
 private:
   Type m_type;
 };
 
 FillCommand::FillCommand(Type type)
-  : Command(type == Stroke ? CommandId::Stroke():
-                             CommandId::Fill(), CmdUIOnlyFlag)
+  : Command(type == Stroke ? CommandId::Stroke() : CommandId::Fill(), CmdUIOnlyFlag)
   , m_type(type)
 {
 }
 
 bool FillCommand::onEnabled(Context* ctx)
 {
-  if (ctx->checkFlags(ContextFlags::ActiveDocumentIsWritable |
-                      ContextFlags::ActiveLayerIsVisible |
-                      ContextFlags::ActiveLayerIsEditable |
-                      ContextFlags::ActiveLayerIsImage)) {
+  if (ctx->checkFlags(ContextFlags::ActiveDocumentIsWritable | ContextFlags::ActiveLayerIsVisible |
+                      ContextFlags::ActiveLayerIsEditable | ContextFlags::ActiveLayerIsImage)) {
     return true;
   }
-#if ENABLE_UI
-  else if (current_editor &&
-           current_editor->isMovingPixels()) {
+  auto* editor = Editor::activeEditor();
+  if (editor && editor->isMovingPixels()) {
     return true;
   }
-#endif
-  else
-    return false;
+  return false;
 }
 
 void FillCommand::onExecute(Context* ctx)
 {
   ContextWriter writer(ctx);
-  Site site = *writer.site();
+  const Site& site = writer.site();
   Doc* doc = site.document();
   Sprite* sprite = site.sprite();
   Layer* layer = site.layer();
   Mask* mask = doc->mask();
-  if (!doc || !sprite ||
-      !layer || !layer->isImage() ||
-      !mask || !doc->isMaskVisible())
+  if (!doc || !sprite || !layer || !layer->isImage() || !mask || !doc->isMaskVisible())
     return;
 
   Preferences& pref = Preferences::instance();
@@ -83,19 +76,14 @@ void FillCommand::onExecute(Context* ctx)
     color = color_utils::color_for_layer(pref.colorBar.fgColor(), layer);
 
   {
-    Tx tx(writer.context(), "Fill Selection with Foreground Color");
+    Tx tx(writer, "Fill Selection with Foreground Color");
     {
-      ExpandCelCanvas expand(
-        site, layer,
-        TiledMode::NONE, tx,
-        ExpandCelCanvas::None);
+      ExpandCelCanvas expand(site, layer, TiledMode::NONE, tx, ExpandCelCanvas::None);
 
-      gfx::Region rgn(sprite->bounds() |
-                      mask->bounds());
+      gfx::Region rgn(sprite->bounds() | mask->bounds());
       expand.validateDestCanvas(rgn);
 
-      gfx::Rect imageBounds(expand.getCel()->position(),
-                            expand.getDestCanvas()->size());
+      gfx::Rect imageBounds(expand.getCel()->position(), expand.getDestCanvas()->size());
       doc::Grid grid = site.grid();
 
       if (site.tilemapMode() == TilemapMode::Tiles)
@@ -107,7 +95,7 @@ void FillCommand::onExecute(Context* ctx)
           imageBounds,
           mask,
           color,
-          (site.tilemapMode() == TilemapMode::Tiles ? &grid: nullptr));
+          (site.tilemapMode() == TilemapMode::Tiles ? &grid : nullptr));
       }
       else {
         doc::algorithm::fill_selection(
@@ -115,7 +103,7 @@ void FillCommand::onExecute(Context* ctx)
           imageBounds,
           mask,
           color,
-          (site.tilemapMode() == TilemapMode::Tiles ? &grid: nullptr));
+          (site.tilemapMode() == TilemapMode::Tiles ? &grid : nullptr));
       }
 
       expand.commit();

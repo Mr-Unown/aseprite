@@ -1,5 +1,5 @@
 // Aseprite
-// Copyright (C) 2020-2021  Igara Studio S.A.
+// Copyright (C) 2020-2022  Igara Studio S.A.
 //
 // This program is distributed under the terms of
 // the End-User License Agreement for Aseprite.
@@ -11,6 +11,7 @@
 #include "app/pref/preferences.h"
 #include "app/ui/color_button.h"
 #include "doc/user_data.h"
+#include "obs/signal.h"
 #include "ui/base.h"
 #include "ui/entry.h"
 #include "ui/grid.h"
@@ -20,32 +21,37 @@
 
 namespace app {
 
-  class UserDataView {
-  public:
-    UserDataView(gen::UserData* userDataWidgetsContainer, Option<bool>* visibility);
+class UserDataView {
+public:
+  UserDataView(Option<bool>& visibility);
 
-    void configureAndSet(const doc::UserData& userData, ui::Grid* parent);
-    void toggleVisibility();
-    void setVisible(bool state, bool saveAsDefault = true);
-    void freeUserDataWidgets(ui::Grid* parent);
+  void configureAndSet(const doc::UserData& userData, ui::Grid* parent);
+  void toggleVisibility();
+  void setVisible(bool state, bool saveAsDefault = true);
 
-    const doc::UserData& userData() const { return m_userData; }
-    ColorButton* color() { return m_userDataWidgetsContainer->color(); }
-    ui::Entry* entry() { return m_userDataWidgetsContainer->entry();}
-    ui::Label* colorLabel() { return m_userDataWidgetsContainer->colorLabel(); }
-    ui::Label* entryLabel() { return m_userDataWidgetsContainer->entryLabel(); }
+  const doc::UserData& userData() const { return m_userData; }
+  ColorButton* color() { return m_container.color(); }
+  ui::Entry* entry() { return m_container.entry(); }
+  ui::Label* colorLabel() { return m_container.colorLabel(); }
+  ui::Label* entryLabel() { return m_container.entryLabel(); }
 
-  private:
-    bool isVisible() const { return (*m_visibility)(); }
-    void onUserDataChange();
-    void onColorChange();
-    bool isConfigured() const { return m_isConfigured; }
+  // Called when the user data text or color are changed by the user
+  // (not from the code/self-update).
+  obs::signal<void()> UserDataChange;
 
-    doc::UserData m_userData;
-    Option<bool>* m_visibility;
-    gen::UserData* m_userDataWidgetsContainer;
-    bool m_isConfigured;
-  };
+private:
+  bool isVisible() const { return m_visibility(); }
+  void onEntryChange();
+  void onColorChange();
+
+  gen::UserData m_container;
+  doc::UserData m_userData;
+  Option<bool>& m_visibility;
+  bool m_isConfigured = false;
+  // True if the change of the user data is from the same object
+  // (not from the user), i.e. from configureAndSet()
+  bool m_selfUpdate = false;
+};
 
 } // namespace app
 

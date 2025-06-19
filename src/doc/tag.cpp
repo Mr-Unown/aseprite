@@ -1,18 +1,20 @@
 // Aseprite Document Library
-// Copyright (C) 2019-2020  Igara Studio S.A.
+// Copyright (C) 2019-2022  Igara Studio S.A.
 // Copyright (C) 2001-2016  David Capello
 //
 // This file is released under the terms of the MIT license.
 // Read LICENSE.txt for more information.
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+  #include "config.h"
 #endif
 
 #include "doc/tag.h"
 
 #include "base/debug.h"
 #include "doc/tags.h"
+
+#include <algorithm>
 
 namespace doc {
 
@@ -22,9 +24,8 @@ Tag::Tag(frame_t from, frame_t to)
   , m_from(from)
   , m_to(to)
   , m_name("Tag")
-  , m_aniDir(AniDir::FORWARD)
 {
-  color_t defaultColor = rgba_a_mask;// black color with full opacity.
+  color_t defaultColor = rgba_a_mask; // black color with full opacity.
   userData().setColor(defaultColor);
 }
 
@@ -35,6 +36,7 @@ Tag::Tag(const Tag& other)
   , m_to(other.m_to)
   , m_name(other.m_name)
   , m_aniDir(other.m_aniDir)
+  , m_repeat(other.m_repeat)
 {
 }
 
@@ -81,11 +83,15 @@ void Tag::setColor(color_t color)
 
 void Tag::setAniDir(AniDir aniDir)
 {
-  ASSERT(m_aniDir == AniDir::FORWARD ||
-         m_aniDir == AniDir::REVERSE ||
-         m_aniDir == AniDir::PING_PONG);
+  ASSERT(m_aniDir == AniDir::FORWARD || m_aniDir == AniDir::REVERSE ||
+         m_aniDir == AniDir::PING_PONG || m_aniDir == AniDir::PING_PONG_REVERSE);
 
   m_aniDir = aniDir;
+}
+
+void Tag::setRepeat(int repeat)
+{
+  m_repeat = std::clamp(repeat, 0, kMaxRepeat);
 }
 
 } // namespace doc

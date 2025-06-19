@@ -1,5 +1,5 @@
 // Aseprite Document Library
-// Copyright (C) 2020-2021  Igara Studio S.A.
+// Copyright (C) 2020-2023  Igara Studio S.A.
 // Copyright (C) 2001-2018  David Capello
 //
 // This file is released under the terms of the MIT license.
@@ -15,106 +15,103 @@
 #include "doc/object.h"
 #include "doc/palette_gradient_type.h"
 
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace doc {
 
-  class Remap;
+class Remap;
 
-  class Palette : public Object {
-  public:
-    Palette();
-    Palette(frame_t frame, int ncolors);
-    Palette(const Palette& palette);
-    Palette(const Palette& palette, const Remap& remap);
-    ~Palette();
+class Palette : public Object {
+public:
+  static void initBestfit();
 
-    Palette& operator=(const Palette& that);
+  Palette();
+  Palette(frame_t frame, int ncolors);
+  Palette(const Palette& palette);
+  Palette(const Palette& palette, const Remap& remap);
+  ~Palette();
 
-    static Palette* createGrayscale();
+  Palette& operator=(const Palette& that);
 
-    int size() const { return (int)m_colors.size(); }
-    void resize(int ncolors);
+  static Palette* createGrayscale();
 
-    const std::string& filename() const { return m_filename; }
-    const std::string& comment() const { return m_comment; }
+  int size() const { return (int)m_colors.size(); }
+  void resize(int ncolors, color_t color = doc::rgba(0, 0, 0, 255));
 
-    void setFilename(const std::string& filename) {
-      m_filename = filename;
-    }
+  // Used to share the palette data with a SkSL shader
+  const color_t* rawColorsData() const { return m_colors.data(); }
 
-    void setComment(const std::string& comment) {
-      m_comment = comment;
-    }
+  const std::string& filename() const { return m_filename; }
+  const std::string& comment() const { return m_comment; }
 
-    int getModifications() const { return m_modifications; }
+  void setFilename(const std::string& filename) { m_filename = filename; }
 
-    // Return true if the palette has alpha != 255 in some entry
-    bool hasAlpha() const;
+  void setComment(const std::string& comment) { m_comment = comment; }
 
-    // Return true if the palette has an alpha value between > 0 and < 255.
-    bool hasSemiAlpha() const;
+  int getModifications() const { return m_modifications; }
 
-    frame_t frame() const { return m_frame; }
-    void setFrame(frame_t frame);
+  // Return true if the palette has alpha != 255 in some entry
+  bool hasAlpha() const;
 
-    color_t entry(int i) const {
-      // TODO At this moment we cannot enable this assert because
-      //      there are situations that are not handled quite well yet.
-      //      E.g. A palette with lesser colors is loaded
-      //
-      //ASSERT(i < size());
-      ASSERT(i >= 0);
-      if (i >= 0 && i < size())
-        return m_colors[i];
-      else
-        return 0;
-    }
-    color_t getEntry(int i) const {
-      return entry(i);
-    }
-    void setEntry(int i, color_t color);
-    void addEntry(color_t color);
+  // Return true if the palette has an alpha value between > 0 and < 255.
+  bool hasSemiAlpha() const;
 
-    void copyColorsTo(Palette* dst) const;
+  frame_t frame() const { return m_frame; }
+  void setFrame(frame_t frame);
 
-    int countDiff(const Palette* other, int* from, int* to) const;
+  color_t entry(int i) const
+  {
+    // TODO At this moment we cannot enable this assert because
+    //      there are situations that are not handled quite well yet.
+    //      E.g. A palette with lesser colors is loaded
+    //
+    // ASSERT(i < size());
+    ASSERT(i >= 0);
+    if (i >= 0 && i < size())
+      return m_colors[i];
+    return 0;
+  }
+  color_t getEntry(int i) const { return entry(i); }
+  void setEntry(int i, color_t color);
+  void addEntry(color_t color);
 
-    bool operator==(const Palette& other) const {
-      return (countDiff(&other, nullptr, nullptr) == 0);
-    }
+  void copyColorsTo(Palette* dst) const;
 
-    bool operator!=(const Palette& other) const {
-      return !operator==(other);
-    }
+  int countDiff(const Palette* other, int* from, int* to) const;
 
-    // Returns true if the palette is completely black.
-    bool isBlack() const;
-    void makeBlack();
+  void addNonRepeatedColors(const Palette* palette, const int max = 256);
 
-    void makeGradient(int from, int to);
-    void makeHueGradient(int from, int to);
+  bool operator==(const Palette& other) const { return (countDiff(&other, nullptr, nullptr) == 0); }
 
-    int findExactMatch(int r, int g, int b, int a, int mask_index) const;
-    bool findExactMatch(color_t color) const;
-    int findBestfit(int r, int g, int b, int a, int mask_index) const;
-    int findBestfit2(int r, int g, int b, int a) const;
+  bool operator!=(const Palette& other) const { return !operator==(other); }
 
-    void applyRemap(const Remap& remap);
+  // Returns true if the palette is completely black.
+  bool isBlack() const;
+  void makeBlack();
 
-    // TODO add undo/redo support of entry names
-    void setEntryName(const int i, const std::string& name);
-    const std::string& getEntryName(const int i) const;
+  void makeGradient(int from, int to);
+  void makeHueGradient(int from, int to);
 
-  private:
-    frame_t m_frame;
-    std::vector<color_t> m_colors;
-    std::vector<std::string> m_names;
-    int m_modifications;
-    std::string m_filename; // If the palette is associated with a file.
-    std::string m_comment; // Some extra comment from the .gpl file (author, website, etc.).
-  };
+  int findExactMatch(int r, int g, int b, int a, int mask_index) const;
+  bool findExactMatch(color_t color) const;
+  int findBestfit(int r, int g, int b, int a, int mask_index) const;
+  int findMaskColor() const;
+
+  void applyRemap(const Remap& remap);
+
+  // TODO add undo/redo support of entry names
+  void setEntryName(const int i, const std::string& name);
+  const std::string& getEntryName(const int i) const;
+
+private:
+  frame_t m_frame;
+  std::vector<color_t> m_colors;
+  std::vector<std::string> m_names;
+  int m_modifications;
+  std::string m_filename; // If the palette is associated with a file.
+  std::string m_comment;  // Some extra comment from the .gpl file (author, website, etc.).
+};
 
 } // namespace doc
 

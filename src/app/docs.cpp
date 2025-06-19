@@ -6,21 +6,19 @@
 // the End-User License Agreement for Aseprite.
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+  #include "config.h"
 #endif
 
 #include "app/docs.h"
 
 #include "app/doc.h"
 #include "base/fs.h"
-#include "base/mutex.h"
 
 #include <algorithm>
 
 namespace app {
 
-Docs::Docs(Context* ctx)
-  : m_ctx(ctx)
+Docs::Docs(Context* ctx) : m_ctx(ctx)
 {
   ASSERT(ctx != NULL);
 }
@@ -41,6 +39,8 @@ Doc* Docs::add(Doc* doc)
     return doc;
   }
 
+  notify_observers(&DocsObserver::onBeforeAddDocument, doc);
+
   m_docs.insert(begin(), doc);
 
   notify_observers(&DocsObserver::onAddDocument, doc);
@@ -60,8 +60,10 @@ Doc* Docs::add(int width, int height, doc::ColorMode colorMode, int ncolors)
 void Docs::remove(Doc* doc)
 {
   iterator it = std::find(begin(), end(), doc);
-  if (it == end())              // Already removed.
+  if (it == end()) // Already removed.
     return;
+
+  notify_observers(&DocsObserver::onBeforeRemoveDocument, doc);
 
   m_docs.erase(it);
 
@@ -77,7 +79,7 @@ void Docs::move(Doc* doc, int index)
   if (it != end())
     m_docs.erase(it);
 
-  m_docs.insert(begin()+index, doc);
+  m_docs.insert(begin() + index, doc);
 }
 
 Doc* Docs::getById(ObjectId id) const

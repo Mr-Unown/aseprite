@@ -1,5 +1,5 @@
 // Aseprite UI Library
-// Copyright (C) 2020-2021  Igara Studio S.A.
+// Copyright (C) 2020-2025  Igara Studio S.A.
 // Copyright (C) 2001-2018  David Capello
 //
 // This file is released under the terms of the MIT license.
@@ -19,162 +19,177 @@
 
 namespace ui {
 
-  class MenuItem;
-  class Timer;
-  struct MenuBaseData;
+class MenuBoxWindow;
+class MenuItem;
+class Timer;
+struct MenuBaseData;
 
-  class Menu : public Widget {
-  public:
-    Menu();
-    ~Menu();
+class Menu : public Widget {
+public:
+  Menu();
+  ~Menu();
 
-    void showPopup(const gfx::Point& pos);
-    Widget* findItemById(const char* id);
+  void showPopup(const gfx::Point& pos, Display* parentDisplay);
+  Widget* findItemById(const char* id) const;
 
-    // Returns the MenuItem that has as submenu this menu.
-    MenuItem* getOwnerMenuItem() {
-      return m_menuitem;
-    }
+  // Returns the MenuItem that has as submenu this menu.
+  MenuItem* getOwnerMenuItem() { return m_menuitem; }
 
-  protected:
-    virtual void onPaint(PaintEvent& ev) override;
-    virtual void onResize(ResizeEvent& ev) override;
-    virtual void onSizeHint(SizeHintEvent& ev) override;
+  obs::signal<void()> OpenPopup;
 
-  private:
-    void setOwnerMenuItem(MenuItem* ownerMenuItem) {
-      m_menuitem = ownerMenuItem;
-    }
+protected:
+  bool inBar() const;
 
-    void closeAll();
+  virtual void onPaint(PaintEvent& ev) override;
+  virtual void onResize(ResizeEvent& ev) override;
+  virtual void onSizeHint(SizeHintEvent& ev) override;
+  virtual void onOpenPopup();
 
-    MenuItem* getHighlightedItem();
-    void highlightItem(MenuItem* menuitem, bool click, bool open_submenu, bool select_first_child);
-    void unhighlightItem();
+private:
+  void setOwnerMenuItem(MenuItem* ownerMenuItem) { m_menuitem = ownerMenuItem; }
 
-    MenuItem* m_menuitem;         // From where the menu was open
+  void closeAll();
 
-    friend class MenuBox;
-    friend class MenuItem;
-  };
+  MenuItem* getHighlightedItem();
+  void highlightItem(MenuItem* menuitem, bool click, bool open_submenu, bool select_first_child);
+  void unhighlightItem();
 
-  class MenuBox : public Widget {
-  public:
-    MenuBox(WidgetType type = kMenuBoxWidget);
-    ~MenuBox();
+  MenuItem* m_menuitem; // From where the menu was open
 
-    Menu* getMenu();
-    void setMenu(Menu* menu);
+  friend class MenuBox;
+  friend class MenuItem;
+};
 
-    MenuBaseData* getBase() {
-      return m_base.get();
-    }
+class MenuBox : public Widget {
+public:
+  MenuBox(WidgetType type = kMenuBoxWidget);
+  ~MenuBox();
 
-    // Closes all menu-boxes and goes back to the normal state of the
-    // menu-bar.
-    void cancelMenuLoop();
+  Menu* getMenu();
+  void setMenu(Menu* menu);
 
-  protected:
-    virtual bool onProcessMessage(Message* msg) override;
-    virtual void onResize(ResizeEvent& ev) override;
-    virtual void onSizeHint(SizeHintEvent& ev) override;
-    MenuBaseData* createBase();
+  MenuBaseData* getBase() { return m_base.get(); }
 
-  private:
-    void closePopup();
-    void startFilteringMouseDown();
-    void stopFilteringMouseDown();
+  // Closes all menu-boxes and goes back to the normal state of the
+  // menu-bar.
+  void cancelMenuLoop();
 
-    std::unique_ptr<MenuBaseData> m_base;
+protected:
+  virtual bool onProcessMessage(Message* msg) override;
+  virtual void onResize(ResizeEvent& ev) override;
+  virtual void onSizeHint(SizeHintEvent& ev) override;
+  MenuBaseData* createBase();
 
-    friend class Menu;
-    friend class MenuItem;
-  };
+private:
+  void closePopup();
+  void startFilteringMouseDown();
+  void stopFilteringMouseDown();
 
-  class MenuBar : public MenuBox {
-  public:
-    MenuBar();
+  std::unique_ptr<MenuBaseData> m_base;
 
-    static bool expandOnMouseover();
-    static void setExpandOnMouseover(bool state);
+  friend class Menu;
+  friend class MenuItem;
+};
 
-  private:
-    static bool m_expandOnMouseover;
-  };
+class MenuBar : public MenuBox {
+public:
+  enum class ProcessTopLevelShortcuts { kNo, kYes };
 
-  class MenuItem : public Widget {
-  public:
-    MenuItem(const std::string& text);
-    ~MenuItem();
+  MenuBar(ProcessTopLevelShortcuts processShortcuts);
 
-    Menu* getSubmenu();
-    void setSubmenu(Menu* submenu);
+  bool processTopLevelShortcuts() const { return m_processTopLevelShortcuts; }
 
-    bool isHighlighted() const;
-    void setHighlighted(bool state);
+  static bool expandOnMouseover();
+  static void setExpandOnMouseover(bool state);
 
-    // Returns true if the MenuItem has a submenu.
-    bool hasSubmenu() const;
+private:
+  // True if we should open top-level menus with Alt+mnemonic (this
+  // flag is not used by Aseprite), top-level menus are opened with
+  // the ShowMenu command now.
+  bool m_processTopLevelShortcuts;
+  static bool m_expandOnMouseover;
+};
 
-    // Returns true if the submenu is opened.
-    bool hasSubmenuOpened() const {
-      return (m_submenu_menubox != nullptr);
-    }
+class MenuItem : public Widget {
+public:
+  MenuItem(const std::string& text);
+  ~MenuItem();
 
-    // Returns the menu-box where the sub-menu has been opened, or
-    // just nullptr if the sub-menu is closed.
-    MenuBox* getSubmenuContainer() const {
-      return m_submenu_menubox;
-    }
+  Menu* getSubmenu();
+  void setSubmenu(Menu* submenu);
 
-    void executeClick();
-    void validateItem();
+  // Open the submenu of this menu item (the menu item should be
+  // positioned in a correct position on the screen).
+  void openSubmenu();
 
-    // Fired when the menu item is clicked.
-    obs::signal<void()> Click;
+  bool isHighlighted() const;
+  void setHighlighted(bool state);
 
-  protected:
-    bool onProcessMessage(Message* msg) override;
-    void onInitTheme(InitThemeEvent& ev) override;
-    void onPaint(PaintEvent& ev) override;
-    void onSizeHint(SizeHintEvent& ev) override;
-    virtual void onClick();
-    virtual void onValidate();
+  // Returns true if the MenuItem has a submenu.
+  bool hasSubmenu() const;
 
-    bool inBar();
+  // Returns true if the submenu is opened.
+  bool hasSubmenuOpened() const { return (m_submenu_menubox != nullptr); }
 
-  private:
-    void openSubmenu(bool select_first);
-    void closeSubmenu(bool last_of_close_chain);
-    void startTimer();
-    void stopTimer();
+  // Returns the menu-box where the sub-menu has been opened, or
+  // just nullptr if the sub-menu is closed.
+  MenuBox* getSubmenuContainer() const { return m_submenu_menubox; }
 
-    bool m_highlighted;           // Is it highlighted?
-    Menu* m_submenu;              // The sub-menu
-    MenuBox* m_submenu_menubox;   // The opened menubox for this menu-item
-    std::unique_ptr<Timer> m_submenu_timer; // Timer to open the submenu
+  void executeClick();
+  void validateItem();
 
-    friend class Menu;
-    friend class MenuBox;
-  };
+  // Fired when the menu item is clicked.
+  obs::signal<void()> Click;
 
-  class MenuSeparator : public Separator {
-  public:
-    MenuSeparator() : Separator("", HORIZONTAL) {
-    }
-  };
+protected:
+  bool onProcessMessage(Message* msg) override;
+  void onInitTheme(InitThemeEvent& ev) override;
+  void onPaint(PaintEvent& ev) override;
+  void onSizeHint(SizeHintEvent& ev) override;
+  virtual void onClick();
+  virtual void onValidate();
 
-  class MenuBoxWindow : public Window {
-  public:
-    MenuBoxWindow(MenuBox* menubox);
-  protected:
-    bool onProcessMessage(Message* msg) override;
-  };
+  bool inBar() const;
 
-  extern RegisterMessage kOpenMenuItemMessage;
-  extern RegisterMessage kCloseMenuItemMessage;
-  extern RegisterMessage kClosePopupMessage;
-  extern RegisterMessage kExecuteMenuItemMessage;
+private:
+  void openSubmenu(bool select_first);
+  void closeSubmenu(bool last_of_close_chain);
+  void startTimer();
+  void stopTimer();
+
+  bool m_highlighted;                     // Is it highlighted?
+  Menu* m_submenu;                        // The sub-menu
+  MenuBox* m_submenu_menubox;             // The opened menubox for this menu-item
+  std::unique_ptr<Timer> m_submenu_timer; // Timer to open the submenu
+
+  friend class Menu;
+  friend class MenuBox;
+  friend class MenuBoxWindow;
+};
+
+class MenuSeparator : public Separator {
+public:
+  MenuSeparator() : Separator("", HORIZONTAL) {}
+};
+
+class MenuBoxWindow : public Window {
+public:
+  MenuBoxWindow(MenuItem* menuitem = nullptr);
+  ~MenuBoxWindow();
+  MenuBox* menubox() { return &m_menubox; }
+
+protected:
+  bool onProcessMessage(Message* msg) override;
+
+private:
+  MenuBox m_menubox;
+  MenuItem* m_menuitem;
+};
+
+extern RegisterMessage kOpenMenuItemMessage;
+extern RegisterMessage kCloseMenuItemMessage;
+extern RegisterMessage kClosePopupMessage;
+extern RegisterMessage kExecuteMenuItemMessage;
 
 } // namespace ui
 

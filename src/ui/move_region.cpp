@@ -6,15 +6,13 @@
 // Read LICENSE.txt for more information.
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+  #include "config.h"
 #endif
 
 #include "ui/manager.h"
 
 #include "os/surface.h"
 #include "os/system.h"
-#include "os/window.h"
-#include "ui/overlay_manager.h"
 
 #include <vector>
 
@@ -22,20 +20,14 @@ namespace ui {
 
 using namespace gfx;
 
-void move_region(Manager* manager, const Region& region, int dx, int dy)
+void move_region(Display* display, const Region& region, int dx, int dy)
 {
-  os::Window* window = manager->display();
-  ASSERT(window);
-  if (!window)
+  ASSERT(display);
+  if (!display)
     return;
 
-  auto overlays = ui::OverlayManager::instance();
-  gfx::Rect bounds = region.bounds();
-  bounds |= gfx::Rect(bounds).offset(dx, dy);
-  overlays->restoreOverlappedAreas(bounds);
-
-  os::Surface* surface = window->surface();
-  os::SurfaceLock lock(surface);
+  os::SurfaceRef surface = display->backLayer()->surface();
+  os::SurfaceLock lock(surface.get());
 
   // Fast path, move one rectangle.
   if (region.isRect()) {
@@ -43,7 +35,7 @@ void move_region(Manager* manager, const Region& region, int dx, int dy)
     surface->scrollTo(rc, dx, dy);
 
     rc.offset(dx, dy);
-    manager->dirtyRect(rc);
+    display->dirtyRect(rc);
   }
   // As rectangles in the region internals are separated by bands
   // through the y-axis, we can sort the rectangles by y-axis and then
@@ -54,44 +46,40 @@ void move_region(Manager* manager, const Region& region, int dx, int dy)
     std::vector<gfx::Rect> rcs(nrects);
     std::copy(region.begin(), region.end(), rcs.begin());
 
-    std::sort(
-      rcs.begin(), rcs.end(),
-      [dx, dy](const gfx::Rect& a, const gfx::Rect& b){
-        if (dy < 0) {
-          if (a.y < b.y)
-            return true;
-          else if (a.y == b.y) {
-            if (dx < 0)
-              return a.x < b.x;
-            else
-              return a.x > b.x;
-          }
+    std::sort(rcs.begin(), rcs.end(), [dx, dy](const gfx::Rect& a, const gfx::Rect& b) {
+      if (dy < 0) {
+        if (a.y < b.y)
+          return true;
+        else if (a.y == b.y) {
+          if (dx < 0)
+            return a.x < b.x;
           else
-            return false;
+            return a.x > b.x;
         }
-        else {
-          if (a.y > b.y)
-            return true;
-          else if (a.y == b.y) {
-            if (dx < 0)
-              return a.x < b.x;
-            else
-              return a.x > b.x;
-          }
+        else
+          return false;
+      }
+      else {
+        if (a.y > b.y)
+          return true;
+        else if (a.y == b.y) {
+          if (dx < 0)
+            return a.x < b.x;
           else
-            return false;
+            return a.x > b.x;
         }
-      });
+        else
+          return false;
+      }
+    });
 
     for (gfx::Rect& rc : rcs) {
       surface->scrollTo(rc, dx, dy);
 
       rc.offset(dx, dy);
-      manager->dirtyRect(rc);
+      display->dirtyRect(rc);
     }
   }
-
-  overlays->drawOverlays();
 }
 
 } // namespace ui

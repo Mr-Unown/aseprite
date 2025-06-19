@@ -25,16 +25,15 @@ jobs:
           curl --ssl-revoke-best-effort -L -o "$skia_file" "$skia_url"
           unzip "$skia_file" -d skia
 
-      - name: Configure with CMake
+      - name: Configure with CMake (Release)
         shell: bash
         run: |
           export laf_backend=skia
           export enable_scripting=on
           export enable_ccache=off
           export skia_arch=x64
-
           cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_BUILD_TYPE=Release \
             -DLAF_BACKEND=$laf_backend \
             -DENABLE_SCRIPTING=$enable_scripting \
             -DENABLE_CCACHE=$enable_ccache \
@@ -45,8 +44,13 @@ jobs:
         shell: bash
         run: cd build && ninja
 
-      - name: Upload Aseprite Build Folder
+      - name: Package Clean Release
+        run: |
+          mkdir release
+          copy build\bin\aseprite.exe release\
+
+      - name: Upload Aseprite Release Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: aseprite-windows-full
-          path: build/bin/
+          name: aseprite-release
+          path: release/
